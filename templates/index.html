@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BRAIN STROKE DETECTION</title>
+    <link rel="stylesheet" href="../static/index.css">
+</head>
+<body>
+    <div class="container">
+        <h1>BRAIN STROKE DETECTION</h1>
+        <form id="strokeForm" enctype="multipart/form-data">
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" required>
+            
+            <label for="age">Age:</label>
+            <input type="number" id="age" name="age" required>
+            
+            <label for="ctScan">Upload CT Scan:</label>
+            <input type="file" id="ctScan" name="ctScan" accept="image/*" required>
+            
+            <button type="submit">Submit</button>
+        </form>
+        
+        <div id="result" class="hidden">
+            <h2>Diagnosis Result</h2>
+            <p><strong>Name:</strong> <span id="resultName"></span></p>
+            <p><strong>Age:</strong> <span id="resultAge"></span></p>
+            <p><strong>Diagnosis:</strong> <span id="diagnosis"></span></p>
+            <p><strong>Stroke Type:</strong> <span id="strokeType"></span></p>
+        </div>
+        
+        <div id="advice" class="hidden">
+            <h2>Steps to Take</h2>
+            <ul>
+                <li>Seek immediate medical attention</li>
+                <li>Monitor vital signs</li>
+                <li>Administer prescribed medication if applicable</li>
+                <li>Consult a neurologist</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById("strokeForm").addEventListener("submit", function(event) {
+            event.preventDefault();
+            const name = document.getElementById("name").value;
+            const age = document.getElementById("age").value;
+            
+            // Simulated response (Replace with real Flask API call)
+            const diagnosis = Math.random() > 0.5 ? "Stroke" : "Normal";
+            const strokeType = diagnosis === "Stroke" ? "Ischemic Stroke" : "N/A";
+            
+            document.getElementById("resultName").textContent = name;
+            document.getElementById("resultAge").textContent = age;
+            document.getElementById("diagnosis").textContent = diagnosis;
+            document.getElementById("strokeType").textContent = strokeType;
+            
+            document.getElementById("result").classList.remove("hidden");
+            document.getElementById("advice").classList.remove("hidden");
+        });
+    </script>
+</body>
+</html>
