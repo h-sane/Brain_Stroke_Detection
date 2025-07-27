@@ -1,5 +1,6 @@
+# Version 2 to force cache refresh
 Flask
 gunicorn
 numpy
-tflite-runtime
 opencv-python-headless
+tflite-runtime
