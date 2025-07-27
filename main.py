@@ -1,35 +1,20 @@
 from flask import Flask, render_template, request, jsonify
-import tensorflow as tf
+import tflite_runtime.interpreter as tflite
 import numpy as np
 import cv2
 import os
 
 app = Flask(__name__)
 
-# --- Correctly load models using reliable paths ---
+# --- Load the TFLite model ---
 base_dir = os.path.dirname(os.path.realpath(__file__))
-stroke_detection_model_path = os.path.join(base_dir, 'stroke_detection_model.h5')
-stroke_type_model_path = os.path.join(base_dir, 'stroke_differentiate_model.keras')
+model_path = os.path.join(base_dir, 'model.tflite')
+interpreter = tflite.Interpreter(model_path=model_path)
+interpreter.allocate_tensors()
 
-stroke_detection_model = tf.keras.models.load_model(stroke_detection_model_path)
-stroke_type_model = tf.keras.models.load_model(stroke_type_model_path)
-
-# --- Define function to preprocess and classify the image ---
-def predict_stroke_type(image):
-    image = cv2.resize(image, (128, 128)) / 255.0
-    image = image.reshape(-1, 128, 128, 1)
-
-    stroke_pred = stroke_detection_model.predict(image)
-    stroke_label = np.argmax(stroke_pred, axis=1)[0]
-
-    if stroke_label == 1:  # Assuming 1 is 'Normal' based on your original code
-        return "Normal", None
-
-    stroke_type_pred = stroke_type_model.predict(image)
-    stroke_type_label = np.argmax(stroke_type_pred, axis=1)[0]
-
-    stroke_types = {0: "Hemorrhagic", 1: "Ischemic"}
-    return "Stroke", stroke_types.get(stroke_type_label, "Unknown")
+# Get input and output tensor details
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
 
 @app.route('/')
 def index():
@@ -39,24 +24,37 @@ def index():
 def predict():
     if 'file' not in request.files:
         return jsonify({"error": "No file part"}), 400
-
     file = request.files['file']
-
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
 
     if file:
-        # --- Process image in memory, DO NOT SAVE to disk ---
-        in_memory_file = np.fromstring(file.read(), np.uint8)
-        image = cv2.imdecode(in_memory_file, cv2.IMREAD_GRAYSCALE)
+        try:
+            # Read and preprocess the image in memory
+            in_memory_file = np.fromstring(file.read(), np.uint8)
+            image = cv2.imdecode(in_memory_file, cv2.IMREAD_GRAYSCALE)
 
-        if image is None:
-            return jsonify({"error": "Invalid image format"}), 400
+            # Resize to the model's expected input size (128x128)
+            resized_image = cv2.resize(image, (128, 128))
+            
+            # Prepare image for the model: add batch and channel dimensions, and normalize
+            input_data = np.expand_dims(resized_image, axis=-1) # Add channel dimension
+            input_data = np.expand_dims(input_data, axis=0) # Add batch dimension
+            input_data = input_data.astype(np.float32) / 255.0 # Normalize
 
-        # Get the predictions
-        stroke_status, stroke_type = predict_stroke_type(image)
+            # Set the input tensor, invoke the interpreter, and get the result
+            interpreter.set_tensor(input_details[0]['index'], input_data)
+            interpreter.invoke()
+            output_data = interpreter.get_tensor(output_details[0]['index'])
+            
+            # Process the output
+            prediction_label = np.argmax(output_data[0])
+            status = "Stroke" if prediction_label == 0 else "Normal"
+            
+            return jsonify({"status": status})
 
-        return jsonify({"status": stroke_status, "type": stroke_type})
+        except Exception as e:
+            return jsonify({"error": f"Error processing image: {str(e)}"}), 500
 
     return jsonify({"error": "An unknown error occurred"}), 500
 
